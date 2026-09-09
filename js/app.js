@@ -352,7 +352,7 @@
   }
   marquee($('#mq1'), ['~Pinklicious', 'Ceremonial grade Uji matcha', 'Whisked to order',
                       'Every drink 3.800 KD', '~Drink it pink', 'Warm cookies 2.000 KD',
-                      'Salmiya, Kuwait', '@pinklicious']);
+                      'Messilah, Kuwait', '@pinklicious']);
   marquee($('#mq2'), ['~Take it home', 'Matcha tin 30g — 5.000 KD', 'My Grippy Matcha — 8.000 KD',
                       '~Pinklicious', 'Free milk swaps', 'Sweetness 0 to 3', '@pinklicious']);
 
@@ -815,9 +815,9 @@
     if (note) note.textContent = PINK.online === false
       ? 'Preview — orders are not connected here'
       : !bag.length
-        ? 'Collection at Salmiya · pay in store'
+        ? 'Collection at Messilah · pay in store'
         : member
-          ? 'Collection at Salmiya · pay in store · stars land when you place it'
+          ? 'Collection at Messilah · pay in store · stars land when you place it'
           : 'Join the Pink Club at checkout to collect these stars';
   }
 

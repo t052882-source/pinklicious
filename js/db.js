@@ -68,8 +68,21 @@
         options: { data: { name: name, phone: phone } }
       }).then(function (r) {
         if (r.error) return { error: human(r.error) };
-        /* No session means the project asks for email confirmation. */
-        return { user: r.data.user, needsEmail: !r.data.session };
+        if (r.data.session) return { user: r.data.user };
+
+        /* No session came back, which usually means the address has to be
+           confirmed by email first. Addresses on the shop's invite list are
+           confirmed by the database the moment they are created, so try
+           signing in once — if it works, they are straight in and never see
+           a confirmation step. If it does not, they really do need the email. */
+        return db.auth.signInWithPassword({ email: email, password: password })
+          .then(function (s) {
+            return s.error
+              ? { user: r.data.user, needsEmail: true }
+              : { user: s.data.user };
+          }, function () {
+            return { user: r.data.user, needsEmail: true };
+          });
       });
     },
 
