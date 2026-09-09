@@ -528,8 +528,11 @@
   }
   var nfmt = function (n) { return n.toLocaleString('en-US'); };
 
+  /* Before the first star you are not in a tier yet — Bronze starts at 1. */
+  var START_TIER = { key:'start', name:'Start', at:0 };
+
   function tierOf(total) {
-    var t = TIERS[0];
+    var t = START_TIER;
     for (var i = 0; i < TIERS.length; i++) if (total >= TIERS[i].at) t = TIERS[i];
     return t;
   }
@@ -564,9 +567,14 @@
     }).join('');
 
     var note = next
-      ? 'Collect <b>' + nfmt(next.at - total) + ' more stars</b> to reach ' + next.name + '.'
+      ? 'Collect <b>' + nfmt(next.at - total) + (next.at - total === 1 ? ' star' : ' more stars') +
+        '</b> to reach ' + next.name + '.'
       : 'You are <b>Platinum</b>. Nothing left to climb — just enjoy it.';
-    note += '<br>Collect <b>' + nfmt(tier.at) + '</b> during the year to stay in ' + tier.name + '.';
+    note += tier === START_TIER
+      ? '<br>Your line is empty. Buy anything and it starts filling.'
+      : tier === TIERS[0]
+        ? '<br>Bronze is yours for keeps. The tiers above are the ones you top up each year.'
+        : '<br>Collect <b>' + nfmt(tier.at) + '</b> during the year to stay in ' + tier.name + '.';
 
     card.innerHTML =
       '<div class="starcard__top">' +
@@ -590,9 +598,10 @@
           '<button type="button" id="starAdd">Add a matcha</button>' +
           '<button type="button" id="starCollect" class="is-key">Collect ' +
             (pending > 0 ? nfmt(pending) + ' stars' : 'stars') + '</button>' +
-          '<button type="button" id="starReset">Reset</button>' +
+          '<button type="button" id="starReset">Back to zero</button>' +
         '</div>' +
-        '<p class="demolabel">' + (memberName ? 'Your card' : 'Example member') +
+        '<p class="demolabel">' +
+          (!memberName && starBalance === DEMO_BALANCE ? 'Example member' : 'Your card') +
           ' — try the buttons to watch the line move</p>' +
       '</div>';
   }
@@ -602,7 +611,7 @@
     if (!el) return;
     el.innerHTML =
       '<div class="rung rung--first">' +
-        '<div class="rung__side"><span class="tierbadge" style="background:var(--line);color:var(--smoke)">Start</span></div>' +
+        '<div class="rung__side"><span class="tierbadge tier--start">Start</span></div>' +
         '<div><p class="rung__intro">Earn your first star to become Bronze.</p></div>' +
       '</div>' +
       TIERS.map(function (t) {
@@ -638,12 +647,11 @@
       return;
     }
     if (e.target.closest('#starReset')) {
-      starBalance = DEMO_BALANCE;
-      stampSeed = DEMO_STAMPS;
-      memberName = '';
+      starBalance = 0;
+      stampSeed = 0;
       bag.length = 0;
       renderCart();
-      toast('Tracker reset');
+      toast('Back to zero — start collecting');
     }
   });
 
