@@ -36,6 +36,36 @@ validation, and a success state. It is front-end only — nothing is sent
 anywhere, and the panel says so. To make it real you would post
 `loginForm` / `joinForm` to your own endpoint in `js/app.js`.
 
+## The Stars — the rewards programme
+
+Section **No. 08** (`#stars`) is the star tracker. **One star for every
+1.000 KD spent**, and the line at the top of the member card grows as the
+balance does. Four tiers, each a segment of that line:
+
+| Tier      | At          | Back in stars |
+|-----------|-------------|---------------|
+| Bronze    | 1 star      | 0.5%          |
+| Silver    | 800 stars   | 1%            |
+| Gold      | 3,500 stars | 2%            |
+| Platinum  | 7,500 stars | 5%            |
+
+Every eighth matcha is free at any tier — the pink pill in the card header
+is that count (`3/8`, then `Free matcha ready`).
+
+All of it lives in the **STARS** block near the bottom of `js/app.js`:
+
+- `STAR_PER_KD` — stars earned per dinar.
+- `TIERS` — the four tiers, their thresholds (`at`) and their reward lines.
+  Edit this array and both the card and the ladder rebuild themselves.
+- `DEMO_BALANCE` / `DEMO_STAMPS` — the example member's starting balance and
+  matcha count, so the section has something to show on a first visit.
+
+Anything added to the bag shows up instantly as *pending* stars; **Collect**
+moves them into the balance, **Reset** puts the example member back. Joining
+the Pink Club sets the card to that member's name and starts them at zero.
+It is front-end only, held in memory — to make it real, persist
+`starBalance` and `stampSeed` per member on your own backend.
+
 ## Editing the menu
 
 Everything on the menu lives in the arrays at the top of `js/app.js` —
