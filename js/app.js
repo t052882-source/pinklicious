@@ -60,9 +60,14 @@
   /* ------------------------------------------------------------- HELPERS */
   var $ = function (s, c) { return (c || document).querySelector(s); };
   var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
-  var kd = function (n) { return n.toFixed(3) + ' KD'; };
+  var kd = function (n) {
+    return Number(n).toLocaleString('en-US',
+      { minimumFractionDigits:3, maximumFractionDigits:3 }) + ' KD';
+  };
   var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) {
     return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); };
+  var nfmt = function (n) { return Number(n).toLocaleString('en-US'); };
+  var PINK = window.PINK || { ready:false };
 
   /* --------------------------------------------------------- DRINK CARDS */
   function drinkCard(d) {
@@ -178,7 +183,7 @@
     $('#cartCount').textContent = count;
     $('#cartItems').textContent = count;
     $('#cartTotal').textContent = kd(total);
-    if (typeof renderStars === 'function') renderStars();
+    paintCartStars();
 
     if (!bag.length) {
       body.innerHTML = '<div class="cart__empty"><p class="script">Nothing yet</p>' +
@@ -231,8 +236,8 @@
       var id = b.dataset.addDrink;
       var d = MATCHA.concat(COFFEE).filter(function (x) { return x.id === id; })[0];
       var temp = b.closest('.card').dataset.temp;
-      addLine({ key:id + '|' + temp, name:d.name, opt:temp === 'hot' ? 'Hot' : 'Iced',
-                price:DRINK_PRICE, img:d.img });
+      addLine({ key:id + '|' + temp, pid:id, name:d.name, opt:temp === 'hot' ? 'Hot' : 'Iced',
+                price:DRINK_PRICE, img:d.img, drink:true });
       toast(d.name + ' added');
       flash(b, 'In your bag ✿');
       return;
@@ -240,7 +245,7 @@
 
     if ((b = e.target.closest('[data-add-sweet]'))) {
       var s = SWEETS.filter(function (x) { return x.id === b.dataset.addSweet; })[0];
-      addLine({ key:s.id, name:s.name, opt:'Warm', price:COOKIE_PRICE, img:s.img, mini:'✿' });
+      addLine({ key:s.id, pid:s.id, name:s.name, opt:'Warm', price:COOKIE_PRICE, img:s.img, mini:'✿' });
       toast(s.name + ' added');
       flash(b, 'In your bag ✿');
       return;
@@ -248,7 +253,7 @@
 
     if ((b = e.target.closest('[data-add]'))) {
       var p = SHOP[b.dataset.add];
-      addLine({ key:p.id, name:p.name, price:p.price, img:p.img, mini:p.mini });
+      addLine({ key:p.id, pid:p.id, name:p.name, price:p.price, img:p.img, mini:p.mini });
       toast(p.name + ' added');
       flash(b, 'In your bag ✿');
     }
@@ -278,15 +283,52 @@
   scrim.addEventListener('click', closeCart);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeCart(); });
 
-  /* Build a readable order and hand it to Instagram DMs */
-  $('#checkout').addEventListener('click', function () {
-    if (!bag.length) return;
-    var lines = bag.map(function (l) {
-      return l.qty + ' × ' + l.name + (l.opt ? ' (' + l.opt + ')' : '');
-    }).join('\n');
-    var total = bag.reduce(function (n, l) { return n + l.qty * l.price; }, 0);
-    try { navigator.clipboard.writeText('Pinklicious order\n' + lines + '\nTotal ' + kd(total)); } catch (err) {}
-    toast('Order copied — paste it in our DMs');
+  /* Place the order. The database prices it and awards the stars — there is
+     no button anywhere for the customer to add stars by hand. */
+  var orderBtn = $('#placeOrder');
+
+  orderBtn.addEventListener('click', function () {
+    if (!bag.length) { toast('Your bag is empty'); return; }
+
+    if (!PINK.ready || PINK.online === false) {
+      toast('This is a preview — open the live site to order');
+      return;
+    }
+    if (!member) {
+      closeCart();
+      openClub('join');
+      toast('Join the Pink Club to collect your stars');
+      return;
+    }
+
+    var items = bag.map(function (l) {
+      return { product_id: l.pid, qty: l.qty, option: l.opt || null };
+    });
+
+    orderBtn.disabled = true;
+    orderBtn.textContent = 'Placing…';
+
+    PINK.placeOrder(items).then(function (r) {
+      orderBtn.disabled = false;
+      orderBtn.textContent = 'Place the order';
+
+      if (r.error) { toast(r.error); return; }
+
+      bag.length = 0;
+      renderCart();
+      closeCart();
+
+      var earned = r.result.stars_earned;
+      toast(earned
+        ? '+' + nfmt(earned) + (earned === 1 ? ' star earned' : ' stars earned')
+        : 'Order placed');
+
+      /* Pull the fresh card and slide the line up to the new balance. */
+      refreshCard().then(function () {
+        var s = document.getElementById('stars');
+        if (s) s.scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+    });
   });
 
   /* --------------------------------------------------------------- TOAST */
@@ -441,20 +483,44 @@
     $('#clubDoneClose').focus();
   }
 
+  /* Every field is live against Supabase Auth. The member row, the star
+     balance and the tier all live in the database — see js/db.js. */
+
+  function busy(form, on, label) {
+    var b = $('button[type="submit"]', form);
+    if (!b) return;
+    if (on) { b.dataset.was = b.textContent; b.textContent = label; b.disabled = true; }
+    else    { b.textContent = b.dataset.was || label; b.disabled = false; }
+  }
+
   forms.login.addEventListener('submit', function (e) {
     e.preventDefault();
     var who = $('#li-email').value.trim(), pw = $('#li-pw').value;
     var ok = true;
-    if (!who) ok = fail('li-email', 'Add your email or phone number.');
-    else if (!isEmail(who) && digits(who) < 8) ok = fail('li-email', 'That does not look like an email or a phone number.');
+    if (!who) ok = fail('li-email', 'Add your email address.');
+    else if (!isEmail(who)) ok = fail('li-email', 'That does not look like an email address.');
     else pass('li-email');
     if (pw.length < 6) ok = fail('li-pw', 'Passwords are at least 6 characters.');
     else pass('li-pw');
     if (!ok) return;
-    memberName = isEmail(who) ? nameFromEmail(who) : '';
-    if (typeof renderStars === 'function') renderStars();
-    done('Welcome back.', 'Signed in as ' + who + '. Your stars and your matcha count are on your card — scroll down to The Stars to see where you are.');
-    toast('Logged in to the Pink Club');
+
+    if (!PINK.ready) { fail('li-email', 'No connection to the club right now.'); return; }
+
+    busy(forms.login, true, 'Signing in…');
+    PINK.signIn(who, pw).then(function (r) {
+      busy(forms.login, false, 'Log in');
+      if (r.error) { fail('li-pw', r.error); return; }
+      forms.login.reset();
+      refreshCard().then(function () {
+        var s = stats || {};
+        done('Welcome back' + (s.name ? ', ' + s.name : '') + '.',
+             s.stars
+               ? 'You are on ' + nfmt(s.stars) + ' stars, sitting in ' +
+                 tierOf(s.stars).name + '. Scroll down to The Stars to see the line.'
+               : 'Your line is still empty. Order anything and the stars start landing.');
+      });
+      toast('Signed in to the Pink Club');
+    });
   });
 
   forms.join.addEventListener('submit', function (e) {
@@ -468,51 +534,60 @@
     if (pw.length < 8) ok = fail('jn-pw', 'Make it 8 characters or more.'); else pass('jn-pw');
     if (pw2 !== pw || !pw2) ok = fail('jn-pw2', 'The two passwords do not match.'); else pass('jn-pw2');
     if (!ok) return;
-    memberName = name;
-    starBalance = 0;            /* a brand-new member starts at zero stars */
-    stampSeed = 0;
-    if (typeof renderStars === 'function') renderStars();
-    done("You're in, " + name + '.',
-         'Your Pink Club card is live and your star line starts at zero. Give ' + phone + ' at the till and we will start counting — one star per dinar, the eighth matcha on us, and a cookie on your birthday.');
-    toast('Welcome to the Pink Club');
+
+    if (!PINK.ready) { fail('jn-email', 'No connection to the club right now.'); return; }
+
+    busy(forms.join, true, 'Making your card…');
+    PINK.signUp(name, phone, mail, pw).then(function (r) {
+      busy(forms.join, false, 'Join the Pink Club');
+      if (r.error) { fail('jn-email', r.error); return; }
+      forms.join.reset();
+
+      if (r.needsEmail) {
+        done('Almost there, ' + name + '.',
+             'We sent a confirmation link to ' + mail +
+             '. Open it and your Pink Club card goes live.');
+        return;
+      }
+      refreshCard();
+      done("You're in, " + name + '.',
+           'Your card is live and your line starts at zero. One star for every ' +
+           'dinar from here on — they land on their own the moment you order. ' +
+           'The eighth matcha is on us, and there is a cookie waiting on your birthday.');
+      toast('Welcome to the Pink Club');
+    });
   });
 
 
   /* ----------------------------------------------------------- THE STARS */
-  /* One star per 1.000 KD spent. Four tiers. The balance below belongs to
-     an example member so the tracker shows a real position on the line;
-     anything you add to the bag moves it live. */
-  var STAR_PER_KD = 1;
-  var DEMO_BALANCE = 1041;
-  var DEMO_STAMPS  = 3;          /* matchas already on the eighth-free card */
-  var starBalance = DEMO_BALANCE;
-  var stampSeed   = DEMO_STAMPS;
-  var memberName = '';
+  /* One star per 1.000 KD spent, worked out and stored in the database.
+     Nothing here can add a star — the only way the balance moves is a real
+     order through place_order(). */
 
   var TIERS = [
     { key:'bronze', name:'Bronze', at:1, rewards:[
       '0.5% back in stars on everything you buy',
-      '2.500 KD gift card on your birthday'
-    ]},
+      '2.500 KD gift card on your birthday' ]},
     { key:'silver', name:'Silver', at:800, rewards:[
       '1% back in stars',
       '3.000 KD gift card the first time you reach Silver',
-      '3.000 KD gift card on your birthday'
-    ]},
+      '3.000 KD gift card on your birthday' ]},
     { key:'gold', name:'Gold', at:3500, rewards:[
-      '2% back in stars',
-      '10.000 KD gift card on your birthday',
+      '2% back in stars', '10.000 KD gift card on your birthday',
       'A gift from the counter the first time you reach Gold',
-      'Invitations to our tastings and matcha classes'
-    ]},
+      'Invitations to our tastings and matcha classes' ]},
     { key:'platinum', name:'Platinum', at:7500, rewards:[
-      '5% back in stars',
-      '20.000 KD gift card on your birthday',
+      '5% back in stars', '20.000 KD gift card on your birthday',
       '20.000 KD gift card on any other date you choose',
       'A VIP gift the first time you reach Platinum',
-      'VIP invitations to everything we host'
-    ]}
+      'VIP invitations to everything we host' ]}
   ];
+
+  /* Before the first star you are not in a tier yet — Bronze starts at 1. */
+  var START_TIER = { key:'start', name:'Start', at:0 };
+
+  var member = null;    /* the signed-in auth user, or null */
+  var stats  = null;    /* the member_stats row: stars, tier, stamps, spend */
 
   var KWT_FLAG =
     '<svg viewBox="0 0 24 12" aria-hidden="true">' +
@@ -526,10 +601,6 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="' + fill +
            '" d="M12 2.2l2.95 6.55 7.05.72-5.3 4.79 1.5 6.94L12 17.55 5.8 21.2l1.5-6.94L2 9.47l7.05-.72z"/></svg>';
   }
-  var nfmt = function (n) { return n.toLocaleString('en-US'); };
-
-  /* Before the first star you are not in a tier yet — Bronze starts at 1. */
-  var START_TIER = { key:'start', name:'Start', at:0 };
 
   function tierOf(total) {
     var t = START_TIER;
@@ -541,71 +612,165 @@
     return null;
   }
 
-  function renderStars() {
-    var card = $('#starCard');
-    if (!card) return;
-
-    var bagKd  = bag.reduce(function (n, l) { return n + l.qty * l.price; }, 0);
-    var drinks = bag.reduce(function (n, l) {
-      return n + (l.price === DRINK_PRICE ? l.qty : 0); }, 0);
-    var pending = Math.floor(bagKd * STAR_PER_KD);
-    var total   = starBalance + pending;
-
-    var tier = tierOf(total), next = nextTier(total);
-    var counted = stampSeed + drinks;
-    var stamps = counted % 8;
-    var freeNow = counted > 0 && stamps === 0;
-
-    /* three segments, between the four tier thresholds */
-    var segs = [
+  function rail(total) {
+    return [
       { key:'silver',   lo:0,    hi:800  },
       { key:'gold',     lo:800,  hi:3500 },
       { key:'platinum', lo:3500, hi:7500 }
     ].map(function (sg) {
       var pct = Math.max(0, Math.min(1, (total - sg.lo) / (sg.hi - sg.lo))) * 100;
-      return '<span class="railseg railseg--' + sg.key + '"><i style="width:' + pct.toFixed(1) + '%"></i></span>';
-    }).join('');
+      return '<span class="railseg railseg--' + sg.key + '"><i style="width:' +
+             pct.toFixed(1) + '%"></i></span>';
+    }).join('') ;
+  }
+
+  var MARKS = '<div class="railmarks"><span>0</span><span>800</span>' +
+              '<span>3,500</span><span>7,500</span></div>';
+
+  /* ---- signed out: show the line, invite them in ---- */
+  function renderGuestCard() {
+    var card = $('#starCard');
+    if (!card) return;
+
+    /* A preview that cannot reach the database says so, rather than
+       offering a Join button that will not work. */
+    if (PINK.online === false) {
+      card.innerHTML =
+        '<div class="starcard__top">' +
+          '<span class="avatar">✿</span>' +
+          '<span class="hello"><span>Pink Club</span><b>Preview</b></span>' +
+          '<span class="kwt">' + KWT_FLAG + 'KWT</span>' +
+        '</div>' +
+        '<div class="starcard__body">' +
+          '<span class="tierbadge tier--start">Start</span>' +
+          '<p class="starcount"><b>0</b>' + star('#ff8fb6') + '</p>' +
+          '<p class="pending">&nbsp;</p>' +
+          '<div class="rail">' + rail(0) + '</div>' + MARKS +
+          '<p class="starnote">This is a preview, so it is not connected to the ' +
+            'club. <b>One star for every dinar</b> you spend, added on its own the ' +
+            'moment an order goes in. Open the live site to join and collect.</p>' +
+          '<div class="stardemo">' +
+            '<a class="btn btn--ghost" href="https://pinklicious.vercel.app/#stars">Open the live site</a>' +
+          '</div>' +
+        '</div>';
+      return;
+    }
+
+    card.innerHTML =
+      '<div class="starcard__top">' +
+        '<span class="avatar">✿</span>' +
+        '<span class="hello"><span>Pink Club</span><b>Not a member yet</b></span>' +
+        '<span class="kwt">' + KWT_FLAG + 'KWT</span>' +
+      '</div>' +
+      '<div class="starcard__body">' +
+        '<span class="tierbadge tier--start">Start</span>' +
+        '<p class="starcount"><b>0</b>' + star('#ff8fb6') + '</p>' +
+        '<p class="pending">&nbsp;</p>' +
+        '<div class="rail">' + rail(0) + '</div>' + MARKS +
+        '<p class="starnote">Join the Pink Club and your line starts filling on ' +
+          'your first order. <b>One star for every dinar</b> — added on their own, ' +
+          'nothing to press.</p>' +
+        '<div class="stardemo">' +
+          '<button type="button" class="is-key" data-club="join">Join the Pink Club</button>' +
+          '<button type="button" data-club="login">I am already a member</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  /* ---- signed in: the member's real card ---- */
+  function renderCard() {
+    var card = $('#starCard');
+    if (!card) return;
+    if (!member || !stats) { renderGuestCard(); return; }
+
+    var total   = stats.stars || 0;
+    var tier    = tierOf(total), next = nextTier(total);
+    var stamps  = stats.stamps || 0;
+    var ready   = stats.free_matchas_ready || 0;
+    var name    = stats.name || nameFromEmail(member.email || '') || 'Member';
 
     var note = next
-      ? 'Collect <b>' + nfmt(next.at - total) + (next.at - total === 1 ? ' star' : ' more stars') +
-        '</b> to reach ' + next.name + '.'
+      ? 'Collect <b>' + nfmt(next.at - total) +
+        (next.at - total === 1 ? ' star' : ' more stars') + '</b> to reach ' + next.name + '.'
       : 'You are <b>Platinum</b>. Nothing left to climb — just enjoy it.';
     note += tier === START_TIER
-      ? '<br>Your line is empty. Buy anything and it starts filling.'
+      ? '<br>Your line is empty. Order anything and it starts filling.'
       : tier === TIERS[0]
         ? '<br>Bronze is yours for keeps. The tiers above are the ones you top up each year.'
         : '<br>Collect <b>' + nfmt(tier.at) + '</b> during the year to stay in ' + tier.name + '.';
 
+    var spent = Number(stats.spent_kd || 0);
+
     card.innerHTML =
       '<div class="starcard__top">' +
-        '<span class="avatar">' + (memberName ? esc(memberName.charAt(0).toUpperCase()) : 'P') + '</span>' +
-        '<span class="hello"><span>Pink Club member</span><b>' +
-          (memberName ? esc(memberName) : 'Hello there') + '</b></span>' +
+        '<span class="avatar">' + esc(name.charAt(0).toUpperCase()) + '</span>' +
+        '<span class="hello"><span>Pink Club member</span><b>' + esc(name) + '</b></span>' +
         '<span class="freepill">' + star('#191416') +
-          (freeNow ? 'Free matcha ready' : stamps + '/8') + '</span>' +
+          (ready > 0 ? (ready > 1 ? ready + ' free matchas ready' : 'Free matcha ready')
+                     : stamps + '/8') + '</span>' +
         '<span class="kwt">' + KWT_FLAG + 'KWT</span>' +
       '</div>' +
       '<div class="starcard__body">' +
         '<span class="tierbadge tier--' + tier.key + '">' + tier.name + '</span>' +
         '<p class="starcount"><b>' + nfmt(total) + '</b>' + star('#ff8fb6') + '</p>' +
-        '<p class="pending">' + (pending > 0
-            ? '+' + nfmt(pending) + ' pending from your bag (' + kd(bagKd) + ')'
-            : '&nbsp;') + '</p>' +
-        '<div class="rail">' + segs + '</div>' +
-        '<div class="railmarks"><span>0</span><span>800</span><span>3,500</span><span>7,500</span></div>' +
+        '<p class="pending">' + (stats.order_count
+            ? stats.order_count + (stats.order_count === 1 ? ' order' : ' orders') +
+              ' · ' + kd(spent) + ' spent with us'
+            : 'No orders yet') + '</p>' +
+        '<div class="rail">' + rail(total) + '</div>' + MARKS +
         '<p class="starnote">' + note + '</p>' +
+        '<div class="ledger" id="ledger"></div>' +
         '<div class="stardemo">' +
-          '<button type="button" id="starAdd">Add a matcha</button>' +
-          '<button type="button" id="starCollect" class="is-key">Collect ' +
-            (pending > 0 ? nfmt(pending) + ' stars' : 'stars') + '</button>' +
-          '<button type="button" id="starReset">Back to zero</button>' +
+          '<button type="button" data-club="out">Sign out</button>' +
         '</div>' +
-        '<p class="demolabel">' +
-          (!memberName && starBalance === DEMO_BALANCE ? 'Example member' : 'Your card') +
-          ' — try the buttons to watch the line move</p>' +
       '</div>';
+
+    /* How the balance was actually earned. */
+    PINK.history(5).then(function (rows) {
+      var el = $('#ledger');
+      if (!el) return;
+      if (!rows.length) { el.innerHTML = ''; return; }
+      el.innerHTML =
+        '<p class="ledger__h">Your last stars</p>' +
+        rows.map(function (r) {
+          return '<div class="ledger__row"><span>' + esc(r.reason) + '</span>' +
+                 '<span>' + esc(shortDate(r.created_at)) + '</span>' +
+                 '<b>+' + nfmt(r.stars) + '</b></div>';
+        }).join('');
+    });
   }
 
+  function shortDate(iso) {
+    try {
+      return new Date(iso).toLocaleDateString('en-GB',
+        { day:'numeric', month:'short' });
+    } catch (e) { return ''; }
+  }
+
+  /* Pull the member row again and repaint the card and the header. */
+  function refreshCard() {
+    if (!member) { stats = null; renderCard(); paintHeader(); return Promise.resolve(); }
+    return PINK.stats().then(function (row) {
+      stats = row;
+      renderCard();
+      paintHeader();
+    });
+  }
+
+  function paintHeader() {
+    var label = $('#clubBtnLabel');
+    if (!label) return;
+    var name = stats && stats.name ? stats.name.split(' ')[0] : null;
+    label.textContent = member
+      ? (stats ? nfmt(stats.stars || 0) + ' ★' : (name || 'My card'))
+      : 'Pink Club';
+    var btn = $('#clubOpen');
+    if (btn) btn.title = member
+      ? (name ? name + ' — ' + (stats ? nfmt(stats.stars || 0) + ' stars' : 'your card') : 'Your card')
+      : 'Join or log in to the Pink Club';
+  }
+
+  /* ---- the tier ladder, straight from TIERS ---- */
   function renderLadder() {
     var el = $('#ladder');
     if (!el) return;
@@ -627,33 +792,57 @@
       }).join('');
   }
 
+  /* Buttons on the card: join, log in, sign out. */
   document.addEventListener('click', function (e) {
-    if (e.target.closest('#starAdd')) {
-      var d = MATCHA[0];
-      addLine({ key:d.id + '|iced', name:d.name, opt:'Iced', price:DRINK_PRICE, img:d.img });
-      toast('Matcha added — stars pending');
+    var b = e.target.closest('[data-club]');
+    if (!b) return;
+    var what = b.dataset.club;
+    if (what === 'out') {
+      PINK.signOut().then(function () { toast('Signed out'); });
       return;
     }
-    if (e.target.closest('#starCollect')) {
-      var kdTotal = bag.reduce(function (n, l) { return n + l.qty * l.price; }, 0);
-      var got = Math.floor(kdTotal * STAR_PER_KD);
-      if (!got) { toast('Add something to the bag first'); return; }
-      starBalance += got;
-      stampSeed += bag.reduce(function (n, l) {
-        return n + (l.price === DRINK_PRICE ? l.qty : 0); }, 0);
-      bag.length = 0;
-      renderCart();
-      toast('+' + nfmt(got) + ' stars collected');
-      return;
-    }
-    if (e.target.closest('#starReset')) {
-      starBalance = 0;
-      stampSeed = 0;
-      bag.length = 0;
-      renderCart();
-      toast('Back to zero — start collecting');
-    }
+    openClub(what);
   });
+
+  /* ---- the bag tells you what the order is worth, before you place it ---- */
+  function paintCartStars() {
+    var wrap = $('#cartStars'), n = $('#cartStarsN'), note = $('#cartNote');
+    if (!wrap) return;
+    var total = bag.reduce(function (x, l) { return x + l.qty * l.price; }, 0);
+    var earn  = Math.floor(total);
+    wrap.hidden = !bag.length;
+    if (n) n.textContent = '+' + nfmt(earn);
+    if (note) note.textContent = PINK.online === false
+      ? 'Preview — orders are not connected here'
+      : !bag.length
+        ? 'Collection at Salmiya · pay in store'
+        : member
+          ? 'Collection at Salmiya · pay in store · stars land when you place it'
+          : 'Join the Pink Club at checkout to collect these stars';
+  }
+
+  /* ---- session: restored on load, and watched from then on ---- */
+  PINK.onAuth(function (user) {
+    member = user;
+    if (!user) { stats = null; renderCard(); paintHeader(); paintCartStars(); return; }
+    refreshCard().then(paintCartStars);
+  });
+
+  renderGuestCard();
+
+  /* Is the database actually reachable from here? Repaint if not. */
+  if (PINK.check) {
+    PINK.check().then(function (ok) {
+      if (!ok && !member) renderGuestCard();
+      if (!ok) {
+        var note = $('#cartNote');
+        if (note) note.textContent = 'Preview — orders are not connected here';
+      }
+    });
+  } else {
+    PINK.online = false;
+    renderGuestCard();
+  }
 
   renderLadder();
 
