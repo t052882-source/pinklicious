@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinklicious — the counter</title>
+<meta name="description" content="Staff view: Pink Club members, their stars and the day's orders.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127861;</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* ---------- the counter: a plain, fast staff screen ---------- */
+body{background:var(--paper);}
+.bar{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:1rem;
+  padding:1rem clamp(1rem,4vw,2.5rem);background:var(--ink);color:var(--petal);
+  flex-wrap:wrap;
+}
+.bar__word{font-family:var(--display);font-size:1.6rem;line-height:1;}
+.bar__tag{
+  font-size:var(--micro);letter-spacing:.28em;text-transform:uppercase;
+  color:rgba(251,245,240,.55);margin-right:auto;
+}
+.bar button{
+  padding:.5rem 1rem;border-radius:100px;border:1px solid rgba(251,245,240,.3);
+  color:var(--petal);font-size:.68rem;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;transition:.25s var(--ease);
+}
+.bar button:hover{background:var(--petal);color:var(--ink);}
+.bar a{color:rgba(251,245,240,.65);font-size:.68rem;letter-spacing:.14em;
+  text-transform:uppercase;font-weight:600;}
+.bar a:hover{color:var(--petal);}
+
+.sheet{padding:clamp(1.5rem,4vw,3rem) clamp(1rem,4vw,2.5rem);max-width:1240px;margin-inline:auto;}
+
+.gate{max-width:400px;margin:clamp(3rem,10vw,7rem) auto;text-align:center;}
+.gate .script{font-family:var(--display);font-size:clamp(2.2rem,5vw,3rem);margin-bottom:.5rem;}
+.gate p{color:var(--smoke);font-size:.9rem;line-height:1.7;margin-bottom:1.75rem;}
+.gate form{display:grid;gap:1rem;text-align:left;}
+.gate .fld{text-align:left;}
+.gate .btn{width:100%;margin-top:.4rem;}
+.gate__err{color:#b3123f;font-size:.8rem;min-height:1.2rem;margin-top:.8rem;}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;
+  background:var(--line-soft);border:1px solid var(--line-soft);margin-bottom:2.5rem;}
+.tile2{background:var(--cream);padding:1.2rem 1.35rem;}
+.tile2 b{display:block;font-family:var(--heavy);font-size:1.9rem;line-height:1.05;
+  font-variant-numeric:tabular-nums;margin-bottom:.35rem;}
+.tile2 b.money{font-size:clamp(1.05rem,1.5vw,1.35rem);}
+.tile2 span{font-size:var(--micro);letter-spacing:.2em;text-transform:uppercase;color:var(--smoke);}
+
+h2.sh{font-family:var(--display);font-size:clamp(1.8rem,4vw,2.6rem);margin:0 0 1.1rem;}
+.tablewrap{overflow-x:auto;border:1px solid var(--line-soft);background:var(--cream);margin-bottom:2.75rem;}
+table.t{width:100%;border-collapse:collapse;min-width:720px;}
+table.t th{
+  text-align:left;font-size:var(--micro);letter-spacing:.2em;text-transform:uppercase;
+  color:var(--smoke);font-weight:600;padding:.85rem 1rem;border-bottom:1px solid var(--line);
+  white-space:nowrap;background:var(--paper);position:sticky;top:0;
+}
+table.t td{padding:.85rem 1rem;border-bottom:1px solid var(--line-soft);font-size:.85rem;vertical-align:middle;}
+table.t tr:last-child td{border-bottom:0;}
+table.t td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--heavy);font-size:.9rem;}
+table.t td.q{color:var(--smoke);font-size:.78rem;}
+.who b{display:block;font-weight:600;}
+.who span{font-size:.72rem;color:var(--smoke-pale);}
+.pillmini{
+  display:inline-block;padding:.25rem .7rem;border-radius:100px;font-size:.6rem;
+  font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#3a3236;
+}
+.freetag{
+  display:inline-flex;align-items:center;gap:.35rem;background:var(--bubblegum);
+  color:var(--ink);padding:.3rem .6rem;border-radius:100px;font-size:.62rem;font-weight:700;
+}
+.rbtn{
+  padding:.42rem .8rem;border-radius:100px;border:1px solid var(--matcha-deep);
+  color:var(--matcha-deep);font-size:.6rem;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;white-space:nowrap;transition:.2s var(--ease);
+}
+.rbtn:hover{background:var(--matcha-deep);color:#fff;}
+.rbtn[disabled]{opacity:.3;pointer-events:none;}
+.muted{color:var(--smoke-pale);font-size:.8rem;}
+.empty{padding:2.5rem 1rem;text-align:center;color:var(--smoke);}
+.stafftag{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--matcha-deep);font-weight:700;font-style:normal;}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="bar__word">Pinklicious</span>
+  <span class="bar__tag">The counter</span>
+  <span class="muted" id="whoami" style="color:rgba(251,245,240,.65);font-size:.72rem"></span>
+  <a href="index.html">The shop</a>
+  <button type="button" id="refresh">Refresh</button>
+  <button type="button" id="out" hidden>Sign out</button>
+</div>
+
+<!-- ---------- not signed in, or not staff ---------- -->
+<section class="sheet" id="gateWrap">
+  <div class="gate">
+    <p class="script">The counter</p>
+    <p>Staff only. Sign in with the address the shop gave you.</p>
+    <form id="gateForm" novalidate>
+      <div class="fld">
+        <label for="st-email">Email</label>
+        <input id="st-email" type="email" autocomplete="email" placeholder="you@pinklicious.kw">
+      </div>
+      <div class="fld">
+        <label for="st-pw">Password</label>
+        <input id="st-pw" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button class="btn" type="submit">Sign in</button>
+      <p class="gate__err" id="gateErr"></p>
+    </form>
+  </div>
+</section>
+
+<!-- ---------- the board ---------- -->
+<section class="sheet" id="board" hidden>
+  <div class="tiles" id="tiles"></div>
+
+  <h2 class="sh">Members</h2>
+  <div class="tablewrap">
+    <table class="t">
+      <thead><tr>
+        <th>Member</th><th>Tier</th><th style="text-align:right">Stars</th>
+        <th>Matcha card</th><th style="text-align:right">Orders</th>
+        <th style="text-align:right">Spent</th><th>Last order</th><th></th>
+      </tr></thead>
+      <tbody id="memberRows"></tbody>
+    </table>
+  </div>
+
+  <h2 class="sh">Recent orders</h2>
+  <div class="tablewrap">
+    <table class="t">
+      <thead><tr>
+        <th>When</th><th>Member</th><th>What</th>
+        <th style="text-align:right">Drinks</th><th style="text-align:right">Total</th>
+      </tr></thead>
+      <tbody id="orderRows"></tbody>
+    </table>
+  </div>
+</section>
+
+<div class="toast" id="toast"><i>✿</i><span id="toastMsg">Done</span></div>
+
+<script src="js/supabase.js"></script>
+<script src="js/db.js"></script>
+<script src="js/staff.js"></script>
+</body>
+</html>

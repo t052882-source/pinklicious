@@ -27,13 +27,38 @@ assert not [r for r in set(left) if r in imgs], 'unreplaced: %s' % set(left)
 
 # ---- take the body markup only; the Artifact host supplies the page skeleton
 body = html.split('<body>', 1)[1].rsplit('</body>', 1)[0]
-body = body.replace('<script src="js/app.js"></script>', '')
+body = re.sub(r'[ \t]*<script src="[^"]+"></script>\n?', '', body)
+body = re.sub(r'[ \t]*<!--[^>]*self-hosted like the fonts[^>]*-->\n?', '', body)
 title = re.search(r'<title>(.*?)</title>', html, re.S).group(1)
+
+# A published preview runs in a sandbox that blocks outside requests, so the
+# database is unreachable there by design. Stub PINK out rather than shipping
+# 137 KB of supabase-js that could never connect: the page then shows its
+# "this is a preview" state and points at the live site.
+offline = """
+/* Preview build: the sandbox blocks outside requests, so there is no
+   database here. app.js paints its preview state off PINK.online. */
+window.PINK = {
+  ready: false, online: false, db: null,
+  check:      function () { return Promise.resolve(false); },
+  menu:       function () { return Promise.resolve([]); },
+  signUp:     function () { return Promise.resolve({ error: 'preview' }); },
+  signIn:     function () { return Promise.resolve({ error: 'preview' }); },
+  signOut:    function () { return Promise.resolve(); },
+  onAuth:     function (cb) { cb(null); },
+  stats:      function () { return Promise.resolve(null); },
+  history:    function () { return Promise.resolve([]); },
+  placeOrder: function () { return Promise.resolve({ error: 'preview' }); },
+  orders:     function () { return Promise.resolve([]); },
+  human:      function (e) { return String(e); }
+};
+"""
 
 out = (
     '<title>%s</title>\n' % title +
     '<style>\n%s\n</style>\n' % css +
     body +
+    '\n<script>%s</script>\n' % offline +
     '\n<script>\n%s\n</script>\n' % js
 )
 (ROOT / 'pinklicious-artifact.html').write_text(out)

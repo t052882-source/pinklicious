@@ -40,7 +40,7 @@
         @pinklicious
       </a>
       <button class="clubbtn" id="clubOpen" aria-haspopup="dialog">
-        <i>✿</i> Pink Club
+        <i>✿</i> <span id="clubBtnLabel">Pink Club</span>
       </button>
       <button class="cartbtn" id="cartOpen" aria-label="Open order bag">
         Bag <span class="cartbtn__n" id="cartCount">0</span>
@@ -334,13 +334,13 @@
         <p class="sec-head__no">No. 08 — The Stars</p>
         <h2 class="sec-title">Every cup earns a <em>star</em>.</h2>
       </div>
-      <p class="sec-sub">One star for every dinar you spend. The line fills as you drink, and each tier unlocks a little more. Free to join, and it never expires mid-year.</p>
+      <p class="sec-sub">One star for every dinar you spend, counted for you the moment an order goes in — there is nothing to scan and nothing to press. Your line follows your card, not your phone. Free to join, and it never expires mid-year.</p>
     </div>
 
     <div class="starcard rv rv-d1" id="starCard"></div>
 
     <div class="earn rv rv-d1">
-      <div><b>1 star</b><span>for every 1.000 KD you spend, on anything — drinks, cookies, tins.</span></div>
+      <div><b>1 star</b><span>for every 1.000 KD you spend, on anything — drinks, cookies, tins. Added automatically.</span></div>
       <div><b>Every 8th matcha</b><span>is free on the house, at any tier. We keep the count for you.</span></div>
       <div><b>Cash back in stars</b><span>from 0.5% to 5%, depending on the tier you are sitting in.</span></div>
     </div>
@@ -465,6 +465,7 @@
         <span>Phone: +965 2000 0000</span>
         <span>Instagram: <a href="https://instagram.com/pinklicious" target="_blank" rel="noopener">@pinklicious</a></span>
         <span>© 2026 Pinklicious</span>
+        <span><a href="staff.html">Staff</a></span>
       </div>
     </div>
   </div>
@@ -587,14 +588,20 @@
   <div class="cart__body" id="cartBody"></div>
   <div class="cart__foot">
     <div class="cart__line"><span>Items</span><span id="cartItems">0</span></div>
+    <div class="cart__line cart__line--stars" id="cartStars" hidden>
+      <span>Stars you will earn</span><b id="cartStarsN">0</b>
+    </div>
     <div class="cart__total"><span>Total</span><b id="cartTotal">0.000 KD</b></div>
-    <a class="btn" id="checkout" href="https://instagram.com/pinklicious" target="_blank" rel="noopener">Send order via Instagram</a>
-    <p class="cart__note">Collection at Salmiya · pay in store</p>
+    <button class="btn" id="placeOrder" type="button">Place the order</button>
+    <p class="cart__note" id="cartNote">Collection at Salmiya · pay in store</p>
   </div>
 </aside>
 
 <div class="toast" id="toast"><i>✿</i><span id="toastMsg">Added to your bag</span></div>
 
+<!-- supabase-js, self-hosted like the fonts: no CDN, no build step -->
+<script src="js/supabase.js"></script>
+<script src="js/db.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

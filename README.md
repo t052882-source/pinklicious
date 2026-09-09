@@ -1,18 +1,25 @@
 # Pinklicious — Matcha & Green Tea House
 
-Front-end project website for Pinklicious, a matcha and green tea coffee shop in Kuwait.
-Hand-built HTML, CSS and vanilla JavaScript — no framework, no build step.
+Project website for Pinklicious, a matcha and green tea coffee shop in Kuwait.
+Hand-built HTML, CSS and vanilla JavaScript — no framework, no build step — on top
+of a real **Supabase** backend: accounts, orders and the star rewards programme
+all live in Postgres.
 
 ## Run it
 
-Open `index.html` in a browser. That's it.
-(If you want a local server: `python3 -m http.server` then visit http://localhost:8000)
+Open `index.html` in a browser. That's it — it talks to the live Supabase
+project, so the Pink Club and the stars work from a local file too.
+(For a local server: `python3 -m http.server` then visit http://localhost:8000)
 
 ## Files
 
-    index.html            all markup
+    index.html            the shop
+    staff.html            the counter — staff view of members and orders
     css/style.css         design system + every component
-    js/app.js             menu data, filters, iced/hot toggles, order bag
+    js/app.js             menu data, filters, iced/hot toggles, order bag, the stars
+    js/db.js              every call to Supabase lives here
+    js/staff.js           the counter screen
+    js/supabase.js        supabase-js, self-hosted like the fonts
     fonts/                Pinyon Script, Italianno, Anton, Archivo Black, Inter (self-hosted)
     img/                  drink cut-outs, cookies, editorial photos
     cookies_real.py       cuts the cookie photos out of their white studio background
@@ -28,13 +35,13 @@ Open `index.html` in a browser. That's it.
 | Ceremonial matcha tin   | 5.000 KD |
 | My Grippy Matcha        | 8.000 KD |
 
-## Pink Club
+## Pink Club — real accounts
 
 The **Pink Club** button in the header opens a full-screen log in / sign up
-panel (`#club` in the markup). Two tabs, show/hide password, inline
-validation, and a success state. It is front-end only — nothing is sent
-anywhere, and the panel says so. To make it real you would post
-`loginForm` / `joinForm` to your own endpoint in `js/app.js`.
+panel (`#club` in the markup), and it is wired to **Supabase Auth**. Signing up
+creates a real account; a `members` row is created for it by a database trigger,
+and the session is restored on every visit, on any device. The header button
+turns into your star count once you are in.
 
 ## The Stars — the rewards programme
 
@@ -49,24 +56,62 @@ balance does. Four tiers, each a segment of that line:
 | Gold      | 3,500 stars | 2%            |
 | Platinum  | 7,500 stars | 5%            |
 
-Every eighth matcha is free at any tier — the pink pill in the card header
-is that count (`3/8`, then `Free matcha ready`).
+Below the first star the card sits at **Start** — Bronze begins at 1 star.
+Every eighth matcha is free at any tier; the pink pill in the card header is
+that count (`3/8`, then `Free matcha ready`), and staff tick it off from the
+counter screen.
 
-All of it lives in the **STARS** block near the bottom of `js/app.js`:
+**Stars are never added by hand.** There is no button for it anywhere. Put
+things in the bag, press **Place the order**, and the database prices the order,
+writes it, and appends the stars — in one transaction. The bag shows what an
+order is worth before you place it, and the card lists the last few entries in
+the ledger so you can see where the balance came from.
 
-- `STAR_PER_KD` — stars earned per dinar.
-- `TIERS` — the four tiers, their thresholds (`at`) and their reward lines.
-  Edit this array and both the card and the ladder rebuild themselves.
-- `DEMO_BALANCE` / `DEMO_STAMPS` — the example member's starting balance and
-  matcha count, so the section has something to show on a first visit.
+## The backend (Supabase)
 
-Anything added to the bag shows up instantly as *pending* stars; **Collect**
-moves them into the balance, **Back to zero** empties the card so you can
-watch the line fill from nothing. Below the first star the card sits at
-**Start** — Bronze only begins at 1 star. Joining the Pink Club sets the card
-to that member's name and starts them at zero. It is front-end only, held in
-memory — to make it real, persist `starBalance` and `stampSeed` per member on
-your own backend.
+Everything is in `schema.sql`, which is the same SQL that was applied
+to the live project — run it on a fresh project and you have this backend.
+
+    products        the menu, and the only place a price is true
+    members         one row per account (name, phone, staff flag, drink count)
+    orders          one row per order, with the total worked out server-side
+    order_items     the lines of an order, priced from products
+    star_ledger     append-only. A balance is sum(stars)
+    member_stats    the view the member card and the counter both read
+    staff_invites   emails allowed onto the counter, set before they sign up
+
+Two functions do the work:
+
+- **`place_order(items)`** — the only way an order is ever created. The browser
+  sends product ids and quantities; prices come from `products`, the total is
+  worked out in the database, and the stars are written in the same transaction.
+  Nothing typed in a browser console can change how many stars you get.
+- **`redeem_free_matcha(member)`** — staff only, ticks off one free matcha.
+
+**Row level security** is on for every table, default deny:
+
+- A member reads their own row, their own orders, their own ledger. Nothing else.
+- `insert`, `update` and `delete` are revoked outright on `orders`,
+  `order_items`, `star_ledger` and `products`.
+- On `members`, a member may update `name` and `phone` and nothing else — the
+  staff flag and the drink count are column-level revoked, so you cannot promote
+  yourself or hand yourself free matchas.
+- Signed out, you can read the menu and nothing more.
+
+These were all checked by trying them, not assumed. Faking a price in the
+`place_order` payload is ignored; the order is still priced from `products`.
+
+## The counter (`staff.html`)
+
+Staff sign in with the same form and get a board: members with their stars,
+tier, matcha card and lifetime spend, the day's takings, and the recent orders
+with their lines. A **Give free matcha** button appears next to anyone with one
+waiting. A member who is not staff sees a polite refusal — and because the rules
+live in the database, not in the page, they could not read the data even if they
+edited the JavaScript.
+
+Staff access is granted by putting the email in `staff_invites` **before** that
+person signs up. `t052882@coded.edu.kw` is on the list.
 
 ## Editing the menu
 
