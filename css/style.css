@@ -578,6 +578,7 @@ body.menu-open .burger span::after{transform:translateY(-5px) rotate(-45deg);}
 .qty span{min-width:20px;text-align:center;font-size:.75rem;font-weight:600;}
 .cart__foot{padding:1.2rem var(--gut) 1.5rem;border-top:1px solid var(--line-soft);background:var(--paper);}
 .cart__line{display:flex;justify-content:space-between;font-size:.8rem;color:var(--smoke);margin-bottom:.5rem;}
+.cart__line--stars b{color:var(--matcha-deep);font-weight:700;font-variant-numeric:tabular-nums;}
 .cart__total{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.1rem;}
 .cart__total b{font-family:var(--black);font-size:1.15rem;font-variant-numeric:tabular-nums;}
 .cart__total span{font-size:var(--micro);letter-spacing:.24em;text-transform:uppercase;color:var(--smoke);}
@@ -860,6 +861,20 @@ body.menu-open .msheet{transform:none;visibility:visible;}
   font-size:var(--micro);letter-spacing:.2em;text-transform:uppercase;
   color:var(--smoke-pale);margin-top:.9rem;
 }
+
+/* --- how the stars were actually earned --- */
+.ledger{margin-top:1.3rem;text-align:left;}
+.ledger__h{
+  font-size:var(--micro);letter-spacing:.22em;text-transform:uppercase;
+  color:var(--smoke);margin-bottom:.5rem;
+}
+.ledger__row{
+  display:grid;grid-template-columns:1fr auto auto;gap:.9rem;align-items:baseline;
+  padding:.5rem 0;border-top:1px solid var(--line-soft);font-size:.8rem;
+}
+.ledger__row span:first-child{color:var(--ink-soft);}
+.ledger__row span:nth-child(2){color:var(--smoke-pale);font-size:var(--micro);letter-spacing:.1em;}
+.ledger__row b{color:var(--matcha-deep);font-weight:700;font-variant-numeric:tabular-nums;}
 
 /* --- how it works --- */
 .earn{
