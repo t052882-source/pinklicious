@@ -111,7 +111,7 @@ live in the database, not in the page, they could not read the data even if they
 edited the JavaScript.
 
 Staff access is granted by putting the email in `staff_invites` **before** that
-person signs up. `t052882@coded.edu.kw` is on the list.
+person signs up. `retajmtalkandie@gmail.com` and `t052882@coded.edu.kw` are on it.
 
 ## Editing the menu
 

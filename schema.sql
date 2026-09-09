@@ -159,6 +159,25 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Addresses on the invite list skip the email-confirmation step, so the shop's
+-- own people sign up and are straight in. Everyone else confirms as normal.
+create or replace function public.autoconfirm_invited()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.email is not null
+     and new.email_confirmed_at is null
+     and exists (select 1 from public.staff_invites si
+                  where lower(si.email) = lower(new.email))
+  then
+    new.email_confirmed_at := coalesce(new.email_confirmed_at, now());
+  end if;
+  return new;
+end $$;
+
+create trigger autoconfirm_invited_users
+  before insert on auth.users
+  for each row execute function public.autoconfirm_invited();
+
 -- Staff check, kept in a definer function so the members policy does not
 -- have to read members and recurse.
 create or replace function public.is_staff()
@@ -423,6 +442,7 @@ revoke select on public.member_stats from anon;
 
 -- Functions.
 revoke all on function public.handle_new_user()             from public, anon, authenticated;
+revoke all on function public.autoconfirm_invited()         from public, anon, authenticated;
 revoke all on function public.is_staff()                    from public, anon;
 revoke all on function public.place_order(jsonb)            from public, anon;
 revoke all on function public.redeem_free_matcha(uuid)      from public, anon;
@@ -471,5 +491,6 @@ on conflict (id) do update
 --    Add an email here BEFORE that person signs up.
 -- ==========================================================================
 insert into public.staff_invites (email, note) values
-  ('t052882@coded.edu.kw', 'Owner')
+  ('retajmtalkandie@gmail.com', 'Owner'),
+  ('t052882@coded.edu.kw',      'Owner')
 on conflict (email) do nothing;
