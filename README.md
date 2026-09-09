@@ -61,10 +61,12 @@ All of it lives in the **STARS** block near the bottom of `js/app.js`:
   matcha count, so the section has something to show on a first visit.
 
 Anything added to the bag shows up instantly as *pending* stars; **Collect**
-moves them into the balance, **Reset** puts the example member back. Joining
-the Pink Club sets the card to that member's name and starts them at zero.
-It is front-end only, held in memory — to make it real, persist
-`starBalance` and `stampSeed` per member on your own backend.
+moves them into the balance, **Back to zero** empties the card so you can
+watch the line fill from nothing. Below the first star the card sits at
+**Start** — Bronze only begins at 1 star. Joining the Pink Club sets the card
+to that member's name and starts them at zero. It is front-end only, held in
+memory — to make it real, persist `starBalance` and `stampSeed` per member on
+your own backend.
 
 ## Editing the menu
 
