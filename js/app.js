@@ -178,6 +178,7 @@
     $('#cartCount').textContent = count;
     $('#cartItems').textContent = count;
     $('#cartTotal').textContent = kd(total);
+    if (typeof renderStars === 'function') renderStars();
 
     if (!bag.length) {
       body.innerHTML = '<div class="cart__empty"><p class="script">Nothing yet</p>' +
@@ -420,6 +421,11 @@
     return true;
   }
   var isEmail = function (v) { return /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v); };
+  /* "retaj.a@mail.com" -> "Retaj" — just enough to greet someone by name */
+  function nameFromEmail(v) {
+    var s = v.split('@')[0].split(/[._\-+0-9]+/)[0];
+    return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
+  }
   var digits  = function (v) { return (v.match(/\d/g) || []).length; };
 
   club.addEventListener('input', function (e) {
@@ -445,7 +451,9 @@
     if (pw.length < 6) ok = fail('li-pw', 'Passwords are at least 6 characters.');
     else pass('li-pw');
     if (!ok) return;
-    done('Welcome back.', 'Signed in as ' + who + '. Your matcha count and your saved order are waiting at the till — just give us the name.');
+    memberName = isEmail(who) ? nameFromEmail(who) : '';
+    if (typeof renderStars === 'function') renderStars();
+    done('Welcome back.', 'Signed in as ' + who + '. Your stars and your matcha count are on your card — scroll down to The Stars to see where you are.');
     toast('Logged in to the Pink Club');
   });
 
@@ -460,10 +468,186 @@
     if (pw.length < 8) ok = fail('jn-pw', 'Make it 8 characters or more.'); else pass('jn-pw');
     if (pw2 !== pw || !pw2) ok = fail('jn-pw2', 'The two passwords do not match.'); else pass('jn-pw2');
     if (!ok) return;
+    memberName = name;
+    starBalance = 0;            /* a brand-new member starts at zero stars */
+    stampSeed = 0;
+    if (typeof renderStars === 'function') renderStars();
     done("You're in, " + name + '.',
-         'Your Pink Club card is live. Give ' + phone + ' at the till and we will start counting — the eighth matcha is on us, and there is a cookie waiting on your birthday.');
+         'Your Pink Club card is live and your star line starts at zero. Give ' + phone + ' at the till and we will start counting — one star per dinar, the eighth matcha on us, and a cookie on your birthday.');
     toast('Welcome to the Pink Club');
   });
+
+
+  /* ----------------------------------------------------------- THE STARS */
+  /* One star per 1.000 KD spent. Four tiers. The balance below belongs to
+     an example member so the tracker shows a real position on the line;
+     anything you add to the bag moves it live. */
+  var STAR_PER_KD = 1;
+  var DEMO_BALANCE = 1041;
+  var DEMO_STAMPS  = 3;          /* matchas already on the eighth-free card */
+  var starBalance = DEMO_BALANCE;
+  var stampSeed   = DEMO_STAMPS;
+  var memberName = '';
+
+  var TIERS = [
+    { key:'bronze', name:'Bronze', at:1, rewards:[
+      '0.5% back in stars on everything you buy',
+      '2.500 KD gift card on your birthday'
+    ]},
+    { key:'silver', name:'Silver', at:800, rewards:[
+      '1% back in stars',
+      '3.000 KD gift card the first time you reach Silver',
+      '3.000 KD gift card on your birthday'
+    ]},
+    { key:'gold', name:'Gold', at:3500, rewards:[
+      '2% back in stars',
+      '10.000 KD gift card on your birthday',
+      'A gift from the counter the first time you reach Gold',
+      'Invitations to our tastings and matcha classes'
+    ]},
+    { key:'platinum', name:'Platinum', at:7500, rewards:[
+      '5% back in stars',
+      '20.000 KD gift card on your birthday',
+      '20.000 KD gift card on any other date you choose',
+      'A VIP gift the first time you reach Platinum',
+      'VIP invitations to everything we host'
+    ]}
+  ];
+
+  var KWT_FLAG =
+    '<svg viewBox="0 0 24 12" aria-hidden="true">' +
+      '<rect width="24" height="4" fill="#007a3d"/>' +
+      '<rect y="4" width="24" height="4" fill="#fff"/>' +
+      '<rect y="8" width="24" height="4" fill="#ce1126"/>' +
+      '<path d="M0 0 6 4 6 8 0 12z" fill="#000"/>' +
+    '</svg>';
+
+  function star(fill) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="' + fill +
+           '" d="M12 2.2l2.95 6.55 7.05.72-5.3 4.79 1.5 6.94L12 17.55 5.8 21.2l1.5-6.94L2 9.47l7.05-.72z"/></svg>';
+  }
+  var nfmt = function (n) { return n.toLocaleString('en-US'); };
+
+  function tierOf(total) {
+    var t = TIERS[0];
+    for (var i = 0; i < TIERS.length; i++) if (total >= TIERS[i].at) t = TIERS[i];
+    return t;
+  }
+  function nextTier(total) {
+    for (var i = 0; i < TIERS.length; i++) if (total < TIERS[i].at) return TIERS[i];
+    return null;
+  }
+
+  function renderStars() {
+    var card = $('#starCard');
+    if (!card) return;
+
+    var bagKd  = bag.reduce(function (n, l) { return n + l.qty * l.price; }, 0);
+    var drinks = bag.reduce(function (n, l) {
+      return n + (l.price === DRINK_PRICE ? l.qty : 0); }, 0);
+    var pending = Math.floor(bagKd * STAR_PER_KD);
+    var total   = starBalance + pending;
+
+    var tier = tierOf(total), next = nextTier(total);
+    var counted = stampSeed + drinks;
+    var stamps = counted % 8;
+    var freeNow = counted > 0 && stamps === 0;
+
+    /* three segments, between the four tier thresholds */
+    var segs = [
+      { key:'silver',   lo:0,    hi:800  },
+      { key:'gold',     lo:800,  hi:3500 },
+      { key:'platinum', lo:3500, hi:7500 }
+    ].map(function (sg) {
+      var pct = Math.max(0, Math.min(1, (total - sg.lo) / (sg.hi - sg.lo))) * 100;
+      return '<span class="railseg railseg--' + sg.key + '"><i style="width:' + pct.toFixed(1) + '%"></i></span>';
+    }).join('');
+
+    var note = next
+      ? 'Collect <b>' + nfmt(next.at - total) + ' more stars</b> to reach ' + next.name + '.'
+      : 'You are <b>Platinum</b>. Nothing left to climb — just enjoy it.';
+    note += '<br>Collect <b>' + nfmt(tier.at) + '</b> during the year to stay in ' + tier.name + '.';
+
+    card.innerHTML =
+      '<div class="starcard__top">' +
+        '<span class="avatar">' + (memberName ? esc(memberName.charAt(0).toUpperCase()) : 'P') + '</span>' +
+        '<span class="hello"><span>Pink Club member</span><b>' +
+          (memberName ? esc(memberName) : 'Hello there') + '</b></span>' +
+        '<span class="freepill">' + star('#191416') +
+          (freeNow ? 'Free matcha ready' : stamps + '/8') + '</span>' +
+        '<span class="kwt">' + KWT_FLAG + 'KWT</span>' +
+      '</div>' +
+      '<div class="starcard__body">' +
+        '<span class="tierbadge tier--' + tier.key + '">' + tier.name + '</span>' +
+        '<p class="starcount"><b>' + nfmt(total) + '</b>' + star('#ff8fb6') + '</p>' +
+        '<p class="pending">' + (pending > 0
+            ? '+' + nfmt(pending) + ' pending from your bag (' + kd(bagKd) + ')'
+            : '&nbsp;') + '</p>' +
+        '<div class="rail">' + segs + '</div>' +
+        '<div class="railmarks"><span>0</span><span>800</span><span>3,500</span><span>7,500</span></div>' +
+        '<p class="starnote">' + note + '</p>' +
+        '<div class="stardemo">' +
+          '<button type="button" id="starAdd">Add a matcha</button>' +
+          '<button type="button" id="starCollect" class="is-key">Collect ' +
+            (pending > 0 ? nfmt(pending) + ' stars' : 'stars') + '</button>' +
+          '<button type="button" id="starReset">Reset</button>' +
+        '</div>' +
+        '<p class="demolabel">' + (memberName ? 'Your card' : 'Example member') +
+          ' — try the buttons to watch the line move</p>' +
+      '</div>';
+  }
+
+  function renderLadder() {
+    var el = $('#ladder');
+    if (!el) return;
+    el.innerHTML =
+      '<div class="rung rung--first">' +
+        '<div class="rung__side"><span class="tierbadge" style="background:var(--line);color:var(--smoke)">Start</span></div>' +
+        '<div><p class="rung__intro">Earn your first star to become Bronze.</p></div>' +
+      '</div>' +
+      TIERS.map(function (t) {
+        return '<div class="rung">' +
+          '<div class="rung__side"><span class="tierbadge tier--' + t.key + '">' + t.name + '</span></div>' +
+          '<div>' +
+            '<p class="rung__at">' + nfmt(t.at) + '<small>' + (t.at === 1 ? 'star' : 'stars') + '</small></p>' +
+            '<ul class="rung__list">' + t.rewards.map(function (r) {
+              return '<li>' + star('#ff8fb6') + '<span>' + esc(r) + '</span></li>'; }).join('') +
+            '</ul>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('#starAdd')) {
+      var d = MATCHA[0];
+      addLine({ key:d.id + '|iced', name:d.name, opt:'Iced', price:DRINK_PRICE, img:d.img });
+      toast('Matcha added — stars pending');
+      return;
+    }
+    if (e.target.closest('#starCollect')) {
+      var kdTotal = bag.reduce(function (n, l) { return n + l.qty * l.price; }, 0);
+      var got = Math.floor(kdTotal * STAR_PER_KD);
+      if (!got) { toast('Add something to the bag first'); return; }
+      starBalance += got;
+      stampSeed += bag.reduce(function (n, l) {
+        return n + (l.price === DRINK_PRICE ? l.qty : 0); }, 0);
+      bag.length = 0;
+      renderCart();
+      toast('+' + nfmt(got) + ' stars collected');
+      return;
+    }
+    if (e.target.closest('#starReset')) {
+      starBalance = DEMO_BALANCE;
+      stampSeed = DEMO_STAMPS;
+      memberName = '';
+      bag.length = 0;
+      renderCart();
+      toast('Tracker reset');
+    }
+  });
+
+  renderLadder();
 
   renderCart();
 })();
