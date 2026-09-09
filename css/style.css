@@ -762,3 +762,147 @@ body.menu-open .msheet{transform:none;visibility:visible;}
   html{scroll-behavior:auto;}
   .rv{opacity:1;transform:none;}
 }
+
+/* ---------- 22. THE STARS — rewards programme ---------- */
+.stars{background:var(--cream);}
+.stars .watermark{z-index:1;}
+
+/* --- member card --- */
+.starcard{
+  position:relative;z-index:5;border:1px solid var(--line-soft);border-radius:16px;
+  overflow:hidden;background:var(--paper);box-shadow:0 22px 48px rgba(120,70,95,.1);
+  max-width:920px;margin-inline:auto;
+}
+.starcard__top{
+  background:var(--ink);color:var(--petal);
+  padding:1.1rem clamp(1.1rem,2.5vw,1.75rem);
+  display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;
+}
+.avatar{
+  width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:var(--bubblegum);color:var(--ink);
+  font-family:var(--display);font-size:1.5rem;line-height:1;padding-bottom:.15rem;
+}
+.hello{margin-right:auto;}
+.hello span{
+  display:block;font-size:var(--micro);letter-spacing:.28em;text-transform:uppercase;
+  color:rgba(251,245,240,.6);
+}
+.hello b{font-size:1.15rem;font-weight:600;letter-spacing:-.01em;}
+.freepill{
+  display:inline-flex;align-items:center;gap:.45rem;
+  background:var(--bubblegum-hot);color:var(--ink);
+  padding:.5rem .85rem;border-radius:100px;
+  font-size:.72rem;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums;
+}
+.freepill svg{width:14px;height:14px;}
+.kwt{
+  display:inline-flex;align-items:center;gap:.45rem;
+  font-size:.68rem;font-weight:600;letter-spacing:.16em;color:rgba(251,245,240,.75);
+}
+.kwt svg{width:20px;height:auto;flex:none;border-radius:2px;
+  box-shadow:0 0 0 1px rgba(251,245,240,.25);}
+
+.starcard__body{padding:clamp(1.5rem,3.5vw,2.5rem);text-align:center;}
+.tierbadge{
+  display:inline-block;padding:.4rem 1.35rem;border-radius:100px;
+  font-size:.7rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:#3a3236;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 2px 6px rgba(0,0,0,.12);
+}
+.tier--bronze{background:linear-gradient(135deg,#e8b98d,#b9713c 55%,#eec49c);}
+.tier--silver{background:linear-gradient(135deg,#eeeef0,#9a9aa2 55%,#f2f2f4);}
+.tier--gold{background:linear-gradient(135deg,#f6dd93,#c9a227 55%,#f9e9ad);}
+.tier--platinum{background:linear-gradient(135deg,#e4eaef,#8d99a6 55%,#f0f4f7);}
+
+.starcount{
+  display:flex;align-items:center;justify-content:center;gap:.65rem;
+  margin:.85rem 0 .3rem;
+}
+.starcount b{
+  font-family:var(--heavy);font-size:clamp(3rem,7vw,4.5rem);line-height:.9;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+}
+.starcount svg{width:clamp(26px,4vw,38px);height:auto;}
+.pending{
+  font-size:.78rem;color:var(--matcha-deep);font-weight:600;min-height:1.2rem;
+}
+
+.rail{display:flex;gap:5px;margin:1.5rem 0 .55rem;}
+.railseg{
+  flex:1;height:9px;border-radius:100px;background:rgba(25,20,22,.09);overflow:hidden;
+}
+.railseg i{display:block;height:100%;width:0;border-radius:100px;transition:width .7s var(--ease);}
+.railseg--bronze i{background:linear-gradient(90deg,#e8b98d,#b9713c);}
+.railseg--silver i{background:linear-gradient(90deg,#eeeef0,#9a9aa2);}
+.railseg--gold i{background:linear-gradient(90deg,#f6dd93,#c9a227);}
+.railseg--platinum i{background:linear-gradient(90deg,#e4eaef,#8d99a6);}
+.railmarks{
+  display:flex;justify-content:space-between;
+  font-size:var(--micro);letter-spacing:.14em;color:var(--smoke);
+  font-variant-numeric:tabular-nums;
+}
+.starnote{font-size:.85rem;color:var(--ink-soft);margin-top:1.1rem;line-height:1.6;}
+.starnote b{color:var(--ink);font-weight:600;}
+.stardemo{
+  display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;
+  margin-top:1.4rem;padding-top:1.3rem;border-top:1px solid var(--line-soft);
+}
+.stardemo button{
+  padding:.6rem 1.05rem;border-radius:100px;border:1px solid var(--line);
+  font-size:.64rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  transition:.25s var(--ease);
+}
+.stardemo button:hover{background:var(--ink);border-color:var(--ink);color:var(--petal);}
+.stardemo .is-key{background:var(--matcha-deep);border-color:var(--matcha-deep);color:#fff;}
+.stardemo .is-key:hover{background:var(--ink);border-color:var(--ink);}
+.demolabel{
+  font-size:var(--micro);letter-spacing:.2em;text-transform:uppercase;
+  color:var(--smoke-pale);margin-top:.9rem;
+}
+
+/* --- how it works --- */
+.earn{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line-soft);
+  border:1px solid var(--line-soft);max-width:920px;margin:1px auto 0;
+}
+.earn div{background:var(--paper);padding:1.15rem 1.35rem;}
+.earn b{
+  display:block;font-family:var(--black);font-size:1rem;margin-bottom:.3rem;
+  font-variant-numeric:tabular-nums;
+}
+.earn span{font-size:.75rem;color:var(--smoke);line-height:1.55;}
+
+/* --- tier ladder --- */
+.ladder{position:relative;margin-top:clamp(3rem,6vw,4.5rem);display:grid;gap:0;}
+.ladder::before{
+  content:'';position:absolute;left:75px;top:22px;bottom:34px;width:2px;
+  background:repeating-linear-gradient(180deg,var(--line) 0 6px,transparent 6px 12px);
+}
+.rung{
+  display:grid;grid-template-columns:150px 1fr;gap:clamp(1.25rem,3vw,2.5rem);
+  padding:1.5rem 0;border-bottom:1px solid var(--line-soft);position:relative;
+}
+.rung:last-child{border-bottom:0;}
+.rung__side{position:relative;z-index:2;display:flex;justify-content:center;align-items:flex-start;}
+.rung__at{font-family:var(--heavy);font-size:1.6rem;line-height:1;font-variant-numeric:tabular-nums;}
+.rung__at small{
+  font-family:var(--sans);font-size:var(--micro);font-weight:600;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--smoke);margin-left:.4rem;
+}
+.rung__list{display:grid;gap:.55rem;margin-top:.9rem;}
+.rung__list li{display:flex;gap:.6rem;font-size:.85rem;color:var(--ink-soft);line-height:1.5;}
+.rung__list svg{width:13px;height:13px;flex:none;margin-top:.25rem;}
+.rung--first{border-top:1px solid var(--line-soft);}
+.rung__intro{
+  font-size:.85rem;color:var(--smoke);font-style:italic;
+}
+
+@media (max-width:760px){
+  .earn{grid-template-columns:1fr;}
+  .ladder::before{display:none;}
+  .rung{grid-template-columns:1fr;gap:.85rem;}
+  .rung__side{justify-content:flex-start;}
+  .starcard__top{gap:.6rem;}
+  .hello b{font-size:1rem;}
+  .kwt{display:none;}
+}
